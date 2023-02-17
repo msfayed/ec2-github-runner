@@ -8,6 +8,8 @@ class Config {
       githubToken: core.getInput('github-token'),
       ec2ImageId: core.getInput('ec2-image-id'),
       ec2InstanceType: core.getInput('ec2-instance-type'),
+      ec2Os: core.getInput('ec2-os'),
+      awsKeyPairName: core.getInput('aws-key-pair-name'),
       subnetId: core.getInput('subnet-id'),
       securityGroupId: core.getInput('security-group-id'),
       label: core.getInput('label'),
@@ -43,8 +45,11 @@ class Config {
     }
 
     if (this.input.mode === 'start') {
-      if (!this.input.ec2ImageId || !this.input.ec2InstanceType || !this.input.subnetId || !this.input.securityGroupId) {
+      if (!this.input.ec2ImageId || !this.input.ec2InstanceType || !this.input.subnetId || !this.input.securityGroupId || !this.input.ec2Os) {
         throw new Error(`Not all the required inputs are provided for the 'start' mode`);
+      }
+      if (this.input.ec2Os !== 'windows' && this.input.ec2Os !== 'linux') {
+        throw new Error(`Wrong ec2-os. Allowed values: windows or linux.`);
       }
     } else if (this.input.mode === 'stop') {
       if (!this.input.label || !this.input.ec2InstanceId) {

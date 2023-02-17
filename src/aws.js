@@ -4,33 +4,64 @@ const config = require('./config');
 
 // User data scripts are run as the root user
 function buildUserDataScript(githubRegistrationToken, label) {
-  if (config.input.runnerHomeDir) {
-    // If runner home directory is specified, we expect the actions-runner software (and dependencies)
-    // to be pre-installed in the AMI, so we simply cd into that directory and then start the runner
-    return [
-      '#!/bin/bash',
-      `cd "${config.input.runnerHomeDir}"`,
-      'export RUNNER_ALLOW_RUNASROOT=1',
-      `./config.sh --url https://github.com/${config.githubContext.owner}/${config.githubContext.repo} --token ${githubRegistrationToken} --labels ${label}`,
-      './run.sh',
-    ];
+  core.info(`Building data script for ${config.input.ec2Os}`)
+  if (config.input.ec2Os === 'windows') {
+    if (config.input.runnerHomeDir) {
+      // If runner home directory is specified, we expect the actions-runner software (and dependencies)
+      // to be pre-installed in the AMI, so we simply cd into that directory and then start the runner
+      return [
+        '<powershell>',
+        `cd "${config.input.runnerHomeDir}"`,
+        `./config.cmd --url https://github.com/${config.githubContext.owner}/${config.githubContext.repo} --token ${githubRegistrationToken} --labels ${label} --unattended`,
+        './run.cmd',
+        '</powershell>',
+        '<persist>false</persist>',
+      ]
+    } else {
+      return [
+        '<powershell>',
+        'mkdir actions-runner; cd actions-runner',
+        `Invoke-WebRequest -Uri https://github.com/actions/runner/releases/download/v2.301.1/actions-runner-win-x64-2.301.1.zip -OutFile actions-runner-win-x64.zip`,
+        `Add-Type -AssemblyName System.IO.Compression.FileSystem ; [System.IO.Compression.ZipFile]::ExtractToDirectory("$PWD/actions-runner-win-x64.zip", "$PWD")`,
+        `./config.cmd --url https://github.com/${config.githubContext.owner}/${config.githubContext.repo} --token ${githubRegistrationToken} --labels ${label} --unattended`,
+        './run.cmd',
+        '</powershell>',
+        '<persist>false</persist>',
+      ]
+    }
+  } else if (config.input.ec2Os === 'linux') {
+
+    if (config.input.runnerHomeDir) {
+      // If runner home directory is specified, we expect the actions-runner software (and dependencies)
+      // to be pre-installed in the AMI, so we simply cd into that directory and then start the runner
+      return [
+        '#!/bin/bash',
+        `cd "${config.input.runnerHomeDir}"`,
+        'export RUNNER_ALLOW_RUNASROOT=1',
+        `./config.sh --url https://github.com/${config.githubContext.owner}/${config.githubContext.repo} --token ${githubRegistrationToken} --labels ${label}`,
+        './run.sh',
+      ];
+    } else {
+      // download and run the latest GitHub runner version and AWS CLI, supports both apt and yum
+      return [
+        '#!/bin/bash',
+        'mkdir actions-runner && cd actions-runner',
+        'command -v apt-get > /dev/null && sudo apt-get update && sudo apt-get install -y curl jq git unzip',
+        'command -v yum > /dev/null && sudo yum -y install curl jq git unzip',
+        'case $(uname -m) in aarch64) ARCH="aarch64" ;; amd64|x86_64) ARCH="x86_64" ;; esac',
+        'curl "https://awscli.amazonaws.com/awscli-exe-linux-${ARCH}.zip" -o "awscliv2.zip" && unzip awscliv2.zip && sudo ./aws/install',
+        'case $(uname -m) in aarch64) ARCH="arm64" ;; amd64|x86_64) ARCH="x64" ;; esac',
+        'RUNNER_VERSION=$(curl --silent "https://api.github.com/repos/actions/runner/releases/latest" | jq -r \'.tag_name[1:]\')',
+        'curl -Ls https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-${ARCH}-${RUNNER_VERSION}.tar.gz | tar xz',
+        'export RUNNER_ALLOW_RUNASROOT=1',
+        'sudo ./bin/installdependencies.sh',
+        `./config.sh --url https://github.com/${config.githubContext.owner}/${config.githubContext.repo} --token ${githubRegistrationToken} --labels ${label} --unattended`,
+        './run.sh',
+      ];
+    }
   } else {
-    // download and run the latest GitHub runner version and AWS CLI, supports both apt and yum
-    return [
-      '#!/bin/bash',
-      'mkdir actions-runner && cd actions-runner',
-      'command -v apt-get > /dev/null && sudo apt-get update && sudo apt-get install -y curl jq git unzip',
-      'command -v yum > /dev/null && sudo yum -y install curl jq git unzip',
-      'case $(uname -m) in aarch64) ARCH="aarch64" ;; amd64|x86_64) ARCH="x86_64" ;; esac',
-      'curl "https://awscli.amazonaws.com/awscli-exe-linux-${ARCH}.zip" -o "awscliv2.zip" && unzip awscliv2.zip && sudo ./aws/install',
-      'case $(uname -m) in aarch64) ARCH="arm64" ;; amd64|x86_64) ARCH="x64" ;; esac',
-      'RUNNER_VERSION=$(curl --silent "https://api.github.com/repos/actions/runner/releases/latest" | jq -r \'.tag_name[1:]\')',
-      'curl -Ls https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-${ARCH}-${RUNNER_VERSION}.tar.gz | tar xz',
-      'export RUNNER_ALLOW_RUNASROOT=1',
-      'sudo ./bin/installdependencies.sh',
-      `./config.sh --url https://github.com/${config.githubContext.owner}/${config.githubContext.repo} --token ${githubRegistrationToken} --labels ${label} --unattended`,
-      './run.sh',
-    ];
+    core.error('Not supported ec2-os.');
+    return []
   }
 }
 
@@ -50,6 +81,10 @@ async function startEc2Instance(label, githubRegistrationToken) {
     IamInstanceProfile: { Name: config.input.iamRoleName },
     TagSpecifications: config.tagSpecifications,
   };
+
+  if (config.input.awsKeyPairName) {
+    params['KeyName'] = config.input.awsKeyPairName
+  }
 
   try {
     const result = await ec2.runInstances(params).promise();
