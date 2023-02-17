@@ -1,3 +1,4 @@
+// windwos support from crunchy234:main
 const AWS = require('aws-sdk');
 const core = require('@actions/core');
 const config = require('./config');
