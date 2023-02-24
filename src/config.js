@@ -13,9 +13,14 @@ class Config {
       label: core.getInput('label'),
       ec2InstanceId: core.getInput('ec2-instance-id'),
       iamRoleName: core.getInput('iam-role-name'),
-      runnerHomeDir: core.getInput('runner-home-dir'),
-      blockDeviceMappings: JSON.parse(core.getInput('block-device-mappings')),
+      runnerHomeDir: core.getInput('runner-home-dir')  
     };
+
+    const mappings = JSON.parse(core.getInput('block-device-mappings'));
+    this.blockDeviceMappings = null;
+    if (mappings.length > 0) {
+      this.blockDeviceMappings = mappings;
+    }
 
     const tags = JSON.parse(core.getInput('aws-resource-tags'));
     this.tagSpecifications = null;

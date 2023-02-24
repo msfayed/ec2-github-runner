@@ -34,8 +34,9 @@ inputs:
     description: >-
       EC2 Security Group Id. 
       The security group should belong to the same VPC as the specified subnet.
-      The runner doesn't require any inbound traffic. However, outbound traffic should be allowed.
+      The runner doesn't require any inbound traffic. However, outbound traffic for port 443 should be allowed.
       This input is required if you use the 'start' mode.
+      You can use comma sperated ID's for example: "sg-12345698,sg-654321987"
     required: false
   label:
     description: >-
