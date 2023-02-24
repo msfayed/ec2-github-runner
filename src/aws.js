@@ -46,12 +46,14 @@ async function startEc2Instance(label, githubRegistrationToken) {
     MaxCount: 1,
     UserData: Buffer.from(userData.join('\n')).toString('base64'),
     SubnetId: config.input.subnetId,
-    SecurityGroupIds: [config.input.securityGroupId],
+    SecurityGroupIds: config.input.securityGroupId.split(','),
     IamInstanceProfile: { Name: config.input.iamRoleName },
     TagSpecifications: config.tagSpecifications,
+    BlockDeviceMappings: config.blockDeviceMappings,
   };
 
   try {
+    core.info(JSON.stringify(params));
     const result = await ec2.runInstances(params).promise();
     const ec2InstanceId = result.Instances[0].InstanceId;
     core.info(`AWS EC2 instance ${ec2InstanceId} is started`);

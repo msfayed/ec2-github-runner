@@ -34,8 +34,9 @@ inputs:
     description: >-
       EC2 Security Group Id. 
       The security group should belong to the same VPC as the specified subnet.
-      The runner doesn't require any inbound traffic. However, outbound traffic should be allowed.
+      The runner doesn't require any inbound traffic. However, outbound traffic for port 443 should be allowed.
       This input is required if you use the 'start' mode.
+      You can use comma sperated ID's for example: "sg-12345698,sg-654321987"
     required: false
   label:
     description: >-
@@ -54,6 +55,12 @@ inputs:
       IAM Role Name to attach to the created EC2 instance.
       This requires additional permissions on the AWS role used to launch instances.
     required: false
+  block-device-mappings:
+    description: >-
+      EC2 instance ebs block device mapping
+      for example: '[{ "DeviceName": "/dev/sda1", "Ebs": { "DeleteOnTermination": true, "VolumeSize": 20, "VolumeType": "gp2"}}]'
+    required: false
+    default: '[]'
   aws-resource-tags:
     description: >-
       Tags to attach to the launched EC2 instance and volume.
